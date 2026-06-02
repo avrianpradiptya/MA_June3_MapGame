@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map Literacy Quiz</title>
+  <style>
+    :root {
+      --color-g1: #2196F3; /* Blue */
+      --color-g2: #4DD0E1; /* Cyan */
+      --color-g3: #FFB74D; /* Orange/Yellow */
+      --color-g4: #FF5252; /* Red */
+      --color-confirm: #00C853; /* Green */
+      --color-disabled: #B0BEC5; /* Grey */
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to bottom, #0b1f4d, #000000);
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+    }
+
+    /* Header Styling */
+    .header-container {
+      width: 800px;
+      display: flex;
+      /*justify-content: space-between; */
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 10px;
+    }
+
+    .quiz-title {
+      flex: 1;
+      font-size: 24px;
+      font-weight: bold;
+      color: #FF5252;
+      margin: 0;
+    }
+
+    .round-indicator {
+      flex-shrink: 0;
+      color: #FFB74D;
+      font-size: 20px;
+      font-weight: bold;
+      margin: 0;
+    }
+
+    /* Map Viewport Frame */
+    .map-frame {
+      position: relative;
+      width: 800px;
+      height: 450px;
+      border: 3px solid #000000;
+      border-radius: 15px;
+      background-color: #ffffff;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    #map-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Markers */
+    .marker {
+      position: absolute;
+      font-size: 28px;
+      font-weight: bold;
+      line-height: 1;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
+      z-index: 10;
+    }
+
+    .correct-marker {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 15;
+      animation: bounce 0.5s ease infinite alternate;
+    }
+
+    @keyframes bounce {
+      from { transform: translate(-50%, -50px); }
+      to { transform: translate(-50%, -35px); }
+    }
+
+    /* Controls Panel */
+    .controls-panel {
+      width: 800px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr) 160px;
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .group-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .score-display {
+      height: 35px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 18px;
+      color: #000;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .group-btn {
+      height: 45px;
+      border: none;
+      border-radius: 10px;
+      color: #000;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .group-btn.active {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 4px #000000;
+    }
+
+    .global-hint {
+      font-size: 18px;
+      font-weight: bold;
+      color: #bebbec;
+      padding: 10px;
+      margin: 0;
+    }
+
+    /* Custom Backgrounds matching specific team design colors */
+    .g1-bg { background-color: var(--color-g1); }
+    .g2-bg { background-color: var(--color-g2); }
+    .g3-bg { background-color: var(--color-g3); }
+    .g4-bg { background-color: var(--color-g4); }
+
+    .confirm-btn {
+      grid-column: 5;
+      height: 85px; /* Spans both rows implicitly through alignment */
+      align-self: end;
+      border: none;
+      border-radius: 12px;
+      background-color: var(--color-confirm);
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+      transition: all 0.2s ease;
+    }
+
+    .confirm-btn:disabled {
+      background-color: var(--color-disabled);
+      color: #78909C;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Modal Info Overlay System */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background-color: #FF7043; /* Vivid orange alert card */
+      color: white;
+      padding: 30px 40px;
+      border-radius: 20px;
+      text-align: center;
+      max-width: 500px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+
+    .modal-card h2 {
+      margin: 0 0 15px 0;
+      font-size: 22px;
+    }
+
+    .modal-card p {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    /* Post-game Result Overlay Styling */
+    .final-score-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 10px 0;
+      font-size: 18px;
+      font-weight: bold;
+      border-bottom: 1px solid rgba(255,255,255,0.3);
+      padding-bottom: 5px;
+    }
+
+    .restart-btn {
+      margin-top: 20px;
+      padding: 10px 25px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      background-color: white;
+      color: #FF7043;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-container">
+    <h1 class="quiz-title" id="quiz-question">Map Literacy Quiz: Loading...</h1>
+    <span class="round-indicator" id="round-number">Round 1/x</span>
+  </div>
+
+  <div class="map-frame" id="map-area">
+    <img src="" id="map-image" alt="Quiz Map Container">
+    <div id="markers-layer"></div>
+    
+    <div class="overlay" id="info-overlay">
+      <div class="modal-card">
+        <h2 id="modal-winner-text">Group 1 gets it closest!</h2>
+        <p id="modal-fact-text">Additional details about the location will render here dynamically.</p>
+      </div>
+    </div>
+
+    <div class="overlay" id="final-overlay">
+      <div class="modal-card" style="background-color: #3F51B5;">
+        <h2>🏆 Final Standings 🏆</h2>
+        <div id="final-scoreboard-dest"></div>
+        <button class="restart-btn" onclick="resetGame()">Play Again</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls-panel">
+    <div class="group-wrapper">
+      <div class="score-display g1-bg" id="score-g1">00</div>
+      <button class="group-btn g1-bg" onclick="selectGroup(1)" id="btn-g1">Group 1</button>
+    </div>
+    <div class="group-wrapper">
+      <div class="score-display g2-bg" id="score-g2">00</div>
+      <button class="group-btn g2-bg" onclick="selectGroup(2)" id="btn-g2">Group 2</button>
+    </div>
+    <div class="group-wrapper">
+      <div class="score-display g3-bg" id="score-g3">00</div>
+      <button class="group-btn g3-bg" onclick="selectGroup(3)" id="btn-g3">Group 3</button>
+    </div>
+    <div class="group-wrapper">
+      <div class="score-display g4-bg" id="score-g4">00</div>
+      <button class="group-btn g4-bg" onclick="selectGroup(4)" id="btn-g4">Group 4</button>
+    </div>
+
+    <button class="confirm-btn" id="confirm-action-btn" onclick="evaluateRound()" disabled>Confirm</button>
+  </div>
+  
+  <p class="global-hint">⚠️ Please click your group badge below before placing your guess on the map!</p>
+
+  <script>
+    // --- EDIT QUIZ DATA REGISTRY HERE ---
+    const quizData = [
+      {
+        question: "Map Literacy Quiz: Locate where is Monas.",
+        image: "map1.png", // Swap out with your actual file names
+        correctX: 500,      // Hardcoded coordinates inside an 800x450 pixel grid space
+        correctY: 183,
+        info: "The National Monument (Monas) is located right in the center of Jakarta, Indonesia."
+      },
+      {
+        question: "Map Literacy Quiz: Locate where is our beloved school.",
+        image: "map2.png",
+        correctX: 589,
+        correctY: 204,
+        info: "Sekolah Highscope Indonesia Kelapa Gading (soon to be VIS Kelapa Gading) is located in Pegangsaan Dua,  North Jakarta."
+      },
+      {
+        question: "Map Literacy Quiz: Where is Yogyakarta City?",
+        image: "map3.png",
+        correctX: 426,
+        correctY: 255,
+        info: "Yogyakarta is a city in Indonesia known for its rich cultural heritage."
+      },
+       {
+        question: "Map Literacy Quiz: Locate the city known as `Kota Pahlawan`?",
+        image: "map3.png",
+        correctX: 628,
+        correctY: 207,
+        info: "Surabaya is known as `Kota Pahlawan`for the fierce resistance of their people during the Indonesian National Revolution."
+      },
+      {
+          question: "Map Literacy Quiz: Locate where is Under Armour store in the map of MKG 2 below.",
+          image: "map4.png",
+          correctX: 267,
+          correctY: 338,
+          info: "This US apparel brand opening their first store in Indonesia since 2016."
+        },
+      {
+          question: "Map Literacy Quiz: Locate where is our last Community Service took place.",
+          image: "map5.png",
+          correctX: 255,
+          correctY: 243,
+          info: "Our last Community Service took place in Desa Bilebante, Central Lombok."
+        },
+      {
+          question: "Map Literacy Quiz: Where is our solar system located in the map of the Milky Way galaxy?",
+          image: "map6.png",
+          correctX: 356,
+          correctY: 115,
+          info: "Our solar system is located in the Orion Arm, a minor spiral arm of the galaxy, approximately 27,000 light-years from the galactic center."
+        },
+      {
+          question: "Map Literacy Quiz: Locate where the milion of Moslem perform their hajj pilgrimage.",
+          image: "map7.png",
+          correctX: 394,
+          correctY: 276,
+          info: "The Hajj pilgrimage is performed in the city of Mecca, Saudi Arabia."
+        },
+      {
+          question: "Map Literacy Quiz: Where can you find dozens of theme park, chief among them is Disney World? ",
+          image: "map8.png",
+          correctX: 460,
+          correctY: 155,
+          info: "Orlando, Florida is home to dozens of theme parks, including Disney World."
+        },
+      {
+          question: "Map Literacy Quiz: Locate where Epstein Island is in the map of the Carribeans below.",
+          image: "map8.png",
+          correctX: 682,
+          correctY: 272,
+          info: "Epstein Island, also known as Little Saint James, is located in the Caribbean Sea, near the U.S. Virgin Islands."
+        }
+      
+    ];
+
+    // Colors tracking config mapped straight to standard UI targets
+    const groupColors = {
+      1: '#2196F3',
+      2: '#4DD0E1',
+      3: '#FFB74D',
+      4: '#FF5252'
+    };
+
+    // System States Engine Data
+    let currentRoundIndex = 0;
+    let activeGroup = null;
+    let roundGuesses = {}; // Schema: { 1: {x, y}, 2: {x, y}... }
+    let cumulativeScores = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    const AUTO_ADVANCE_MS = 6000; // How long info banner stays open (6 seconds)
+
+    // Elements Initializers Cache
+    const mapArea = document.getElementById('map-area');
+    const markersLayer = document.getElementById('markers-layer');
+    const confirmBtn = document.getElementById('confirm-action-btn');
+
+    // Run core engine init context setup
+    initRound();
+
+    function initRound() {
+      // 1. Setup Round View Frame Metadata
+      const data = quizData[currentRoundIndex];
+      document.getElementById('quiz-question').innerText = data.question;
+      document.getElementById('round-number').innerText = `Round ${currentRoundIndex + 1}/${quizData.length}`;
+      document.getElementById('map-image').src = data.image;
+
+      // 2. Clean out old placement marks
+      markersLayer.innerHTML = '';
+      roundGuesses = {};
+      activeGroup = null;
+
+      // 3. System Reset Layout States
+      confirmBtn.disabled = true;
+      clearActiveGroupSelectionClasses();
+    }
+
+    function selectGroup(groupNum) {
+      activeGroup = groupNum;
+      clearActiveGroupSelectionClasses();
+      document.getElementById(`btn-g${groupNum}`).classList.add('active');
+    }
+
+    function clearActiveGroupSelectionClasses() {
+      for (let i = 1; i <= 4; i++) {
+        document.getElementById(`btn-g${i}`).classList.remove('active');
+      }
+    }
+
+    // Capture User Input Coordinates Context On Clicking Map Wrapper Frame
+    mapArea.addEventListener('click', function(e) {
+      // Guard clauses to lock click actions during display overlays processing
+      if (activeGroup === null) return;
+      if (document.getElementById('info-overlay').classList.contains('show')) return;
+      
+      // Target elements tracking ensures overlay selections do not register random positions offsets
+      if (e.target.id !== 'map-image' && e.target.id !== 'map-area' && e.target.id !== 'markers-layer') return;
+
+      const rect = mapArea.getBoundingClientRect();
+      const clickX = Math.round(e.clientX - rect.left);
+      const clickY = Math.round(e.clientY - rect.top);
+
+      // Record selection state metrics updates
+      roundGuesses[activeGroup] = { x: clickX, y: clickY };
+
+      // Plot or rewrite UI marker asset elements cleanly on coordinate matrix mapping
+      renderGroupMarker(activeGroup, clickX, clickY);
+
+      // Validation logic ensures verification unlocks only when everyone is verified ready
+      if (Object.keys(roundGuesses).length === 4) {
+        confirmBtn.disabled = false;
+      }
+    });
+
+    function renderGroupMarker(group, x, y) {
+      let existingMarker = document.getElementById(`marker-team-${group}`);
+      if (existingMarker) {
+        existingMarker.style.left = `${x}px`;
+        existingMarker.style.top = `${y}px`;
+      } else {
+        const markerSpan = document.createElement('span');
+        markerSpan.id = `marker-team-${group}`;
+        markerSpan.className = 'marker';
+        markerSpan.style.left = `${x}px`;
+        markerSpan.style.top = `${y}px`;
+        markerSpan.style.color = groupColors[group];
+        markerSpan.innerText = '+';
+        markersLayer.appendChild(markerSpan);
+      }
+    }
+
+    // Primary Scoring Engine Workflow Process Method
+    function evaluateRound() {
+      confirmBtn.disabled = true;
+      const currentRoundData = quizData[currentRoundIndex];
+      const targetX = currentRoundData.correctX;
+      const targetY = currentRoundData.correctY;
+
+      let roundScores = {};
+      let closestGroup = null;
+      let highestRoundScore = -1;
+
+      // Distance Decay Formula: Max 100 pts. 0 pts if distance > 300px away.
+      for (let i = 1; i <= 4; i++) {
+        const guess = roundGuesses[i];
+        const dx = guess.x - targetX;
+        const dy = guess.y - targetY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Score logic calculates dynamic scalar point tracking values
+        let score = 0;
+        if (distance <= 12) {
+          score = 100; // Accurate target margin tolerance match lock
+        } else if (distance < 300) {
+          score = Math.round(100 * (1 - (distance / 300)));
+        }
+
+        roundScores[i] = score;
+        cumulativeScores[i] += score;
+
+        // Determine who got closest this round
+        if (score > highestRoundScore) {
+          highestRoundScore = score;
+          closestGroup = i;
+        }
+      }
+
+      // Update HUD score components UI readouts immediately
+      for (let i = 1; i <= 4; i++) {
+        document.getElementById(`score-g${i}`).innerText = String(cumulativeScores[i]).padStart(2, '0');
+      }
+
+      // Display the actual location using a styled pin symbol
+      renderCorrectLocationPin(targetX, targetY);
+
+      // Show intermediate evaluation summary details frame window block layout state updates
+      document.getElementById('modal-winner-text').innerText = `Group ${closestGroup} get it the closest with the score of ${highestRoundScore}!`;
+      document.getElementById('modal-fact-text').innerText = currentRoundData.info;
+      document.getElementById('info-overlay').classList.add('show');
+
+      // Schedule automated pipeline steps shift management task loops
+      setTimeout(() => {
+        document.getElementById('info-overlay').classList.remove('show');
+        advanceGameWorkflow();
+      }, AUTO_ADVANCE_MS);
+    }
+
+    function renderCorrectLocationPin(x, y) {
+      const pin = document.createElement('div');
+      pin.className = 'correct-marker';
+      pin.style.left = `${x}px`;
+      pin.style.top = `${y}px`;
+      
+      // High visibility custom inline SVG vector icon mapping markup setup block
+      pin.innerHTML = `
+        <svg height="42" viewBox="0 0 24 24" width="42" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#D50000" stroke="#FFFFFF" stroke-width="1.5"/>
+        </svg>
+      `;
+      markersLayer.appendChild(pin);
+    }
+
+    function advanceGameWorkflow() {
+      currentRoundIndex++;
+      if (currentRoundIndex < quizData.length) {
+        initRound();
+      } else {
+        displayFinalPodiumResults();
+      }
+    }
+
+    function displayFinalPodiumResults() {
+      const container = document.getElementById('final-scoreboard-dest');
+      container.innerHTML = '';
+
+      // Determine clear winners mapping context metric values arrays processing sorting tasks
+      const sortedTeams = [1, 2, 3, 4].sort((a, b) => cumulativeScores[b] - cumulativeScores[a]);
+      
+      sortedTeams.forEach((teamNum, index) => {
+        const medalSymbol = index === 0 ? '👑 ' : '';
+        const scoreRow = document.createElement('div');
+        scoreRow.className = 'final-score-row';
+        scoreRow.innerHTML = `<span>${medalSymbol}Group ${teamNum}</span> <span>${cumulativeScores[teamNum]} pts</span>`;
+        container.appendChild(scoreRow);
+      });
+
+      document.getElementById('final-overlay').classList.add('show');
+    }
+
+    function resetGame() {
+      currentRoundIndex = 0;
+      cumulativeScores = { 1: 0, 2: 0, 3: 0, 4: 0 };
+      
+      for (let i = 1; i <= 4; i++) {
+        document.getElementById(`score-g${i}`).innerText = '00';
+      }
+
+      document.getElementById('final-overlay').classList.remove('show');
+      initRound();
+    }
+  </script>
+</body>
+</html>
